@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
 import os
 import time
 import json  # JSON 응답을 더 깔끔하게 만들기 위해 import
@@ -12,9 +13,16 @@ import gc
 # from werkzeug.utils import secure_filename # 실제 파일 이름 보안 처리 시 필요
 
 app = Flask(__name__)
+# CORS 설정: Spring Boot 서버와 React 개발 서버에서의 요청 허용
+# 모든 엔드포인트에 대해 CORS 허용 (개발용)
+CORS(app, origins=[
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:5173"
+], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], allow_headers=["Content-Type", "Authorization"])
 # Flask 서버를 실행할 포트 (Spring Boot의 application.properties와 일치해야 함)
 # macOS의 AirPlay Receiver가 5000 포트를 사용하므로 5001로 변경
-FLASK_PORT = 5000
+FLASK_PORT = 5001
 
 # 클래스 이름
 class_names = ['감바스', '숯불치킨', '양념치킨', '파스타', '후라이드치킨']
