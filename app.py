@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
 import os
 import time
 import json  # JSON 응답을 더 깔끔하게 만들기 위해 import
@@ -12,9 +13,16 @@ import gc
 # from werkzeug.utils import secure_filename # 실제 파일 이름 보안 처리 시 필요
 
 app = Flask(__name__)
+# CORS 설정: Spring Boot 서버와 React 개발 서버에서의 요청 허용
+# 모든 엔드포인트에 대해 CORS 허용 (개발용)
+CORS(app, origins=[
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:5173"
+], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], allow_headers=["Content-Type", "Authorization"])
 # Flask 서버를 실행할 포트 (Spring Boot의 application.properties와 일치해야 함)
 # macOS의 AirPlay Receiver가 5000 포트를 사용하므로 5001로 변경
-FLASK_PORT = 5000
+FLASK_PORT = 5001
 
 # 클래스 이름
 class_names = ['감바스', '숯불치킨', '양념치킨', '파스타', '후라이드치킨']
@@ -247,18 +255,29 @@ def analyze_image():
             predicted_idx = torch.argmax(probabilities).item()
             confidence = probabilities[predicted_idx].item()
 
-        # 4. 예측 결과 (Spring Boot의 AiResponse DTO에 맞춰 두 가지만 반환)
+        # 4. 상위 3개 결과 계산
+        top3_probs, top3_indices = torch.topk(probabilities, min(3, len(class_names)))
+        
+        top3_results = []
+        for i in range(len(top3_indices)):
+            top3_results.append({
+                "class": class_names[top3_indices[i].item()],
+                "confidence": round(top3_probs[i].item() * 100, 2)
+            })
+
+        # 5. 예측 결과 (Spring Boot의 AiResponse DTO에 맞춰 반환)
         food_name = class_names[predicted_idx]
         confidence_score = round(confidence * 100, 2)  # 0.0~1.0 → 0.0~100.0으로 변환
 
-        # 5. Spring Boot의 AiResponse DTO 형식에 맞춘 JSON 응답 구성
+        # 6. Spring Boot의 AiResponse DTO 형식에 맞춘 JSON 응답 구성
         # Spring Boot에서 나머지 정보(칼로리, 영양정보, 레시피 등)는 DB에서 가져와서 처리
         response_data = {
             "class": food_name,  # AiResponse의 predictedClass 필드와 매핑
-            "confidence": confidence_score  # AiResponse의 confidence 필드와 매핑
+            "confidence": confidence_score,  # AiResponse의 confidence 필드와 매핑
+            "top3": top3_results  # 상위 3개 예측 결과
         }
 
-        # 6. JSON 응답 반환
+        # 7. JSON 응답 반환
         return jsonify(response_data), 200
         
     except Exception as e:
